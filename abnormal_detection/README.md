@@ -1,8 +1,8 @@
 # Nonlinear-SVGD for Unsupervised  Abnormal Detection
 Use `run.sh` to reproduce our results. Example:
-```python
-python trainer.py --method svgd --n_components 4 --kernel rbf --seed 100 --temperature 5e-1 --n_epochs 200 --clean --gpu 0 --lr_weight_decay
-```
+
+    python trainer.py --method svgd --n_components 4 --kernel rbf --seed 100 --temperature 5e-1 --n_epochs 200 --clean --gpu 0 --lr_weight_decay
+
 ## Requirements
 Tensorflow 1.8
 
