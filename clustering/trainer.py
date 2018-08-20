@@ -300,8 +300,8 @@ class Trainer(object):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--method', type=str, default='svgd', required=True, choices=['svgd'])
-    parser.add_argument('--dataset', type=str, default='mnist', required=True, choices=['mnist'])
+    parser.add_argument('--method', type=str, default='svgd', required=False, choices=['svgd'])
+    parser.add_argument('--dataset', type=str, default='mnist', required=False, choices=['mnist'])
     parser.add_argument('--n_epochs', type=int, default=1000, required=False)
     parser.add_argument('--batch_size', type=int, default=100, required=False)
     parser.add_argument('--dim', type=int, default=28, required=False)
@@ -309,7 +309,7 @@ def main():
     parser.add_argument('--z_dim', type=int, default=10, required=False)
     parser.add_argument('--num_clusters', type=int, default=10, required=False)
     parser.add_argument('--n_components', type=int, default=10, required=False)
-    parser.add_argument('--temperature', type=float, default=0, required=False)
+    parser.add_argument('--temperature', type=float, default=0.5, required=False)
     parser.add_argument('--kernel', type=str, default='none', required=False, choices=['rbf', 'none'])
     parser.add_argument('--checkpoint', type=str, default=None, required=False)
     parser.add_argument('--learning_rate', type=float, default=1e-4, required=False)

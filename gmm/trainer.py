@@ -20,10 +20,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 
-'''
-    Augmented Lagrangian: for stable training
-'''
+
 class Trainer(object):
+
+    #def optimize_sgd(self, train_vars, train_grads, lr=1e-2):
+    #    optimizer = tf.train.GradientDescentOptimizer(self.config.learning_rate)
+    #    train_op = optimizer.minimize(loss,var_list=train_vars, 
+    #                           global_step=self.global_step,
+    #                           gate_gradients=optimizer.GATE_NONE)
+    #    return train_op
 
 
     def optimize_adagrad(self, train_vars, train_grads, lr=1e-2):
@@ -57,11 +62,8 @@ class Trainer(object):
             config.seed,
         )
 
-        #self.train_dir = './train_dir/%s' % self.filepath
-        #self.fig_dir = './figures/%s' % self.filepath
         self.res_dir = './results/%s' % self.filepath
 
-        #for folder in [self.train_dir, self.fig_dir]:
         import glob
         for folder in [self.res_dir]:
             if not os.path.exists(folder):
@@ -70,7 +72,6 @@ class Trainer(object):
             files = glob.glob(folder + '/*')
             for f in files: os.remove(f)
 
-        #log.infov("Train Dir: %s, Figure Dir: %s", self.train_dir, self.fig_dir)
         from model_svgd import Model
         self.model = Model(config)
 
@@ -90,7 +91,6 @@ class Trainer(object):
 
         self.summary_op = tf.summary.merge_all()
         self.saver = tf.train.Saver(max_to_keep=1)
-        #self.summary_writer = tf.summary.FileWriter(self.train_dir)
         self.summary_writer = tf.summary.FileWriter(self.res_dir)
         self.checkpoint_secs = 300  # 5 min
 
@@ -131,24 +131,7 @@ class Trainer(object):
             prob_star.append( np.exp(log_pdf(xvals, m, np.exp(lv))) )
 
         ## training log likelihood
-        log_prob = self.session.run( self.model.log_prob, feed_dict=self.model.get_feed_dict(x_train) )
-        ll = np.mean( np.exp(log_prob) )
-
         samples = np.concatenate(samples, axis=0)
-        ## KL divergence
-        kl_qp = 0
-        for m, lv, m_star, lv_star in zip(mus, log_vars, mus_star, log_vars_star):
-            log_q = log_pdf(samples, m, np.exp(lv))
-            log_p = log_pdf(samples, m_star, np.exp(lv_star))
-            kl_qp += (log_q - log_p)
-        kl_qp = np.mean(kl_qp) / self.config.n_components
-
-        kl_pq = 0
-        for m, lv, m_star, lv_star in zip(mus, log_vars, mus_star, log_vars_star):
-            log_p = log_pdf(x_train, m_star, np.exp(lv_star))
-            log_q = log_pdf(x_train, m, np.exp(lv))
-            kl_pq += (log_p - log_q)
-        kl_pq = np.mean(kl_pq) / self.config.n_components
 
         # mode distance
         from scipy.spatial import distance
@@ -160,7 +143,7 @@ class Trainer(object):
 
         mean_diff = (pred_mean - true_mean)**2
         var_ratio = pred_var / true_var
-        return samples, xvals, np.stack(probs, axis=0), np.sum(np.expand_dims(w_star, 1) * np.stack(prob_star, axis=0), axis=0), ll, kl_qp, kl_pq, mode_dist, mean_diff, var_ratio
+        return samples, xvals, np.stack(probs, axis=0), np.sum(np.expand_dims(w_star, 1) * np.stack(prob_star, axis=0), axis=0), mode_dist, mean_diff, var_ratio
 
 
     def train(self):
@@ -174,46 +157,39 @@ class Trainer(object):
         n_train = len(x_train)
 
         n_plot = 0
-        with open(self.res_dir + "/step.txt", 'w') as f:
+        for n_updates in range(1, 1+self.config.max_steps):
+            batch_x = x_train[np.random.choice(n_train, self.config.batch_size, replace=False)]
+            step, summary, step_time = self.run_single_step(batch_x)
 
-            for n_updates in range(1, 1+self.config.max_steps):
+            self.summary_writer.add_summary(summary, global_step=step)
 
-                batch_x = x_train[np.random.choice(n_train, self.config.batch_size, replace=False)]
-                step, summary, step_time = self.run_single_step(batch_x)
+            if n_updates == 1 or n_updates % 500 == 0:
+                samples, xvals, probs, probs_star, mode_dist, mean_diff, var_ratio = \
+                                self.evaluate_step(x_train, mus_star, log_vars_star, w_star, sample_size=500, xlim= self.config.t*self.config.n_components+5)
 
-                self.summary_writer.add_summary(summary, global_step=step)
+                prefix = '%d,%d,%s,%s' % (n_updates, self.config.n_components, self.config.kernel, repr(self.config.temperature))
+                print(prefix + ',' + repr(mode_dist) + ',' + repr(mean_diff) + ',' + repr(var_ratio) )
 
+            # plot the density function at the end
+            if n_updates == 1 or n_updates == self.config.max_steps:
+                _, ax1 = plt.subplots()
+                plt.plot(xvals, probs_star, '-r', color='r', linewidth=2)
+                plt.plot(xvals, np.mean(probs, axis=0), '-b', linewidth=2)
+                plt.fill_between(xvals, probs_star, alpha=0.5, color='tomato')
+                plt.fill_between(xvals, np.mean(probs, axis=0), alpha=0.5, color='dodgerblue')
+                #for kk in range(self.config.n_components):
+                #    plt.plot(xvals, probs[kk], '--k', linewidth=1)
 
-                if n_updates == 1 or n_updates % 500 == 0:
-                    samples, xvals, probs, probs_star, ll, kl_qp, kl_pq, mode_dist, mean_diff, var_ratio = \
-                                    self.evaluate_step(x_train, mus_star, log_vars_star, w_star, sample_size=500, xlim= self.config.t*self.config.n_components+5)
+                plt.ylim(0.0, 0.14)
+                plt.savefig('%s/step_%d.png' % (self.res_dir, n_updates))
 
-                    prefix = '%d,%d,%s,%s' % (n_updates, self.config.n_components, self.config.kernel, repr(self.config.temperature))
-                    f.write(prefix + ',' + repr(mode_dist) + ',' + repr(mean_diff) + ',' + repr(var_ratio) + ',' + repr(ll) + ',' + repr(kl_qp) + ',' + repr(kl_pq) + '\n')
-                    print(prefix + ',' + repr(mode_dist) + ',' + repr(mean_diff) + ',' + repr(var_ratio) + ',' + repr(ll) + ',' + repr(kl_qp) + ',' + repr(kl_pq))
+                plt.close()
+                n_plot += 1
 
-                # plot the density function at the end
-                if n_updates == 1 or n_updates == self.config.max_steps:
-                    _, ax1 = plt.subplots()
-                    plt.plot(xvals, probs_star, '-r', color='r', linewidth=2)
-                    plt.plot(xvals, np.mean(probs, axis=0), '-b', linewidth=2)
-                    plt.fill_between(xvals, probs_star, alpha=0.5, color='tomato')
-                    plt.fill_between(xvals, np.mean(probs, axis=0), alpha=0.5, color='dodgerblue')
-                    #for kk in range(self.config.n_components):
-                    #    plt.plot(xvals, probs[kk], '--k', linewidth=1)
-
-                    plt.ylim(0.0, 0.14)
-                    pp = PdfPages('%s/step_%d.pdf' % (self.res_dir, n_updates))
-                    pp.savefig()
-                    pp.close()
-
-                    plt.close()
-                    n_plot += 1
-
-        ## save model at the end
-        #self.saver.save(self.session,
-        #        os.path.join(self.res_dir, 'model'),
-        #        global_step=step)
+        # save model at the end
+        self.saver.save(self.session,
+                os.path.join(self.res_dir, 'model'),
+                global_step=step)
 
 
     def run_single_step(self, batch_x):
@@ -231,32 +207,27 @@ class Trainer(object):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--method', type=str, default='svgd', required=True, choices=['svgd'])
+    parser.add_argument('--method', type=str, default='svgd', required=False, choices=['svgd'])
     parser.add_argument('--max_steps', type=int, default=20000, required=False)
     parser.add_argument('--batch_size', type=int, default=512, required=False)
     parser.add_argument('--dim', type=int, default=1, required=False)
-    parser.add_argument('--temperature', type=float, default=1., required=True)
-    parser.add_argument('--n_components', type=int, default=4, required=False)
+    parser.add_argument('--temperature', type=float, default=0.05, required=False)
+    parser.add_argument('--n_components', type=int, default=5, required=False)
     parser.add_argument('--t', type=float, default=4., required=False)
-    parser.add_argument('--kernel', type=str, default='rbf', required=True, choices=['rbf', 'js', 'none'])
+    parser.add_argument('--kernel', type=str, default='rbf', required=False, choices=['rbf', 'none'])
     parser.add_argument('--checkpoint', type=str, default=None, required=False)
-    parser.add_argument('--learning_rate', type=float, default=5e-4, required=True)
+    parser.add_argument('--learning_rate', type=float, default=5e-2, required=False)
     parser.add_argument('--lr_weight_decay', action='store_true', default=False)
-    parser.add_argument('--save', action='store_true', default=False)
-    parser.add_argument('--gpu', type=int, default=1)
     parser.add_argument('--seed', type=int, default=123, required=False)
     config = parser.parse_args()
 
-    if not config.save:
-        log.warning("nothing will be saved.")
+    if config.kernel == 'none':
+        config.temperature = 0.0
+    assert config.dim == 1, 'illegal inputs [dim=1]'
 
-    np.random.seed(config.seed)
     session_config = tf.ConfigProto(
         allow_soft_placement=True,
-        # intra_op_parallelism_threads=1,
-        # inter_op_parallelism_threads=1,
         gpu_options=tf.GPUOptions(allow_growth=True),
-        #device_count={'GPU': 1},
     )
 
     with tf.Graph().as_default(), tf.Session(config=session_config) as sess:

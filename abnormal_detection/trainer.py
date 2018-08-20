@@ -202,7 +202,7 @@ def main():
     parser.add_argument('--n_components', type=int, default=4, required=False)
     parser.add_argument('--lambda_energy', type=float, default=0.1, required=False)
     parser.add_argument('--lambda_cov_inv', type=float, default=0.005, required=False)
-    parser.add_argument('--temperature', type=float, default=0, required=False)
+    parser.add_argument('--temperature', type=float, default=0.5, required=False)
     parser.add_argument('--kernel', type=str, default='none', required=False, choices=['rbf', 'none'])
     parser.add_argument('--checkpoint', type=str, default='./model_inits', required=False)
     parser.add_argument('--learning_rate', type=float, default=1e-4, required=False)

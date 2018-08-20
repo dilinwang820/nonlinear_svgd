@@ -40,12 +40,15 @@ class Model(object):
         grad = tf.concat((mu_grad, log_var_grad), axis=1)
 
         svgd_grad = svgd_gradient(self.particles, grad=grad, \
-                temperature=self.config.temperature, kernel=self.config.kernel)
+                            temperature=self.config.temperature, kernel=self.config.kernel)
 
         self.clip_op = self.log_vars.assign( tf.clip_by_value(self.log_vars, -3., 3.) )
         updates = -svgd_grad  # maximize log likelihood
         self.train_vars = [self.mus, self.log_vars]
         self.train_grads = [tf.reshape(updates[:, :self.config.dim], self.mus.get_shape()), tf.reshape(updates[:, self.config.dim:], self.log_vars.get_shape())]
+
+        self.loss = tf.reduce_sum(self.particles * updates)
+        tf.summary.scalar("loss", self.loss)
 
 
     def get_feed_dict(self, X):
