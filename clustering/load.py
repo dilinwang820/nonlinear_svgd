@@ -13,20 +13,20 @@ import scipy.io as sio
 from util import shuffle
 from lib.vis import grayscale_grid_vis, color_grid_vis
 
-def load_mnist( data_dir = '/home/dilin/data/mnist_data'):
-    fd = open(os.path.join(data_dir,'train-images-idx3-ubyte'))
+def load_mnist( data_dir = './data'):
+    fd = open(os.path.join(data_dir,'train-images.idx3-ubyte'))
     loaded = np.fromfile(file=fd,dtype=np.uint8)
     trX = loaded[16:].reshape((60000,28,28,1)).astype(float)
 
-    fd = open(os.path.join(data_dir,'train-labels-idx1-ubyte'))
+    fd = open(os.path.join(data_dir,'train-labels.idx1-ubyte'))
     loaded = np.fromfile(file=fd,dtype=np.uint8)
     trY = loaded[8:].reshape((60000))
 
-    fd = open(os.path.join(data_dir,'t10k-images-idx3-ubyte'))
+    fd = open(os.path.join(data_dir,'t10k-images.idx3-ubyte'))
     loaded = np.fromfile(file=fd,dtype=np.uint8)
     teX = loaded[16:].reshape((10000,28,28,1)).astype(float)
 
-    fd = open(os.path.join(data_dir,'t10k-labels-idx1-ubyte'))
+    fd = open(os.path.join(data_dir,'t10k-labels.idx1-ubyte'))
     loaded = np.fromfile(file=fd,dtype=np.uint8)
     teY = loaded[8:].reshape((10000))
 
