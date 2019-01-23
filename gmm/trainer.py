@@ -224,6 +224,7 @@ def main():
     if config.kernel == 'none':
         config.temperature = 0.0
     assert config.dim == 1, 'illegal inputs [dim=1]'
+    assert config.n_components < 10, 'too much modes'
 
     session_config = tf.ConfigProto(
         allow_soft_placement=True,
